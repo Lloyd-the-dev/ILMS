@@ -5,6 +5,7 @@
    $userId = $_SESSION["user_id"];
    $firstLogin = $_SESSION["first_login"];
    $firstname = $_SESSION["firstname"];
+   $accType = $_SESSION["accType"];
    if($firstLogin == 1){
       header("location: edit_profile.php");
    }
@@ -41,7 +42,12 @@
             <li><a href="courses.php">Courses</a></li>
             <li><a href="#">About us</a></li>
             <li><a href="edit_profile.php">Profile</a></li>
-            <li><a href="learnings.php">Learnings</a></li>
+            <?php if ($accType == "Student") {?>
+               <li><a href="learnings.php">Learnings</a></li>
+            <?php }else { ?>
+               <li><a href="manage_courses.php">My Courses</a></li>
+            <?php } ?>
+            
          </ul>
          <button class="login-btn"><a href="index.html">Logout</a></button>
       </nav>
