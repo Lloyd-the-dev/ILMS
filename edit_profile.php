@@ -73,8 +73,8 @@ if ($result->num_rows > 0) {
                <li><a href="dashboard.php">Home</a></li>
                <li><a href="courses.php">Courses</a></li>
                <li><a href="#">About us</a></li>
-               <li><a href="edit_profile.php">Profile</a></li>
-               <li><a href="#">Learnings</a></li>
+               <li><a href="edit_profile.php" id="active">Profile</a></li>
+               <li><a href="learnings.php">Learnings</a></li>
             </ul>
             <button class="login-btn"><a href="index.html">Logout</a></button>
          </nav>

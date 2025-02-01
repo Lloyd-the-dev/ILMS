@@ -1,17 +1,24 @@
-<?php 
+<?php
+include "config.php";
+session_start();
 
-    include "config.php";
+$userId = $_SESSION["user_id"];
 
+$sql = "SELECT c.*, 
+               (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.course_id AND e.user_id = ?) AS enrolled
+        FROM courses c";
 
-    $sql = "SELECT * FROM courses"; 
-    $result = $conn->query($sql);
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $userId);
+$stmt->execute();
+$result = $stmt->get_result();
 
-    $data = array();
-    while ($row = $result->fetch_assoc()) {
-        $data[] = $row;
-    }
+$data = array();
+while ($row = $result->fetch_assoc()) {
+    $data[] = $row;
+}
 
-    echo json_encode($data);
+// ✅ Check if "enrolled" is being returned
+header('Content-Type: application/json');
+echo json_encode($data, JSON_PRETTY_PRINT);
 ?>
-
- 

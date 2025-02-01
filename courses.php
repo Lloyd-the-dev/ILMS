@@ -125,10 +125,10 @@
         <ul class="links">
             <span class="close-btn material-symbols-rounded">close</span>
             <li><a href="dashboard.php">Home</a></li>
-            <li><a href="courses.php">Courses</a></li>
+            <li><a href="courses.php" id="active">Courses</a></li>
             <li><a href="#">About us</a></li>
             <li><a href="edit_profile.php">Profile</a></li>
-            <li><a href="#">Learnings</a></li>
+            <li><a href="learnings.php">Learnings</a></li>
         </ul>
         <button class="login-btn"><a href="index.html">Logout</a></button>
     </nav>
@@ -240,20 +240,70 @@
         function renderStudentCourses(courses) {
             const courseGrid = document.getElementById("courseGrid");
             courseGrid.innerHTML = "";
+
             courses.forEach(course => {
-                courseGrid.innerHTML += `
-                    <div class="col-md-4 col-lg-3 mb-4">
-                        <div class="card course-card">
-                            <img src="${course.course_img}" alt="${course.course_title}">
-                            <div class="card-body">
-                                <h5 class="card-title">${course.course_title}</h5>
-                                <button class="enroll-btn">Enroll Now</button>
-                            </div>
+                const courseCard = document.createElement("div");
+                courseCard.classList.add("col-md-4", "col-lg-3", "mb-4");
+
+                
+                let isEnrolled = course.enrolled > 0; 
+
+                let buttonHTML = isEnrolled
+                    ? `<button class="btn btn-success" disabled>Enrolled ✅</button>`
+                    : `<button class="enroll-btn btn btn-primary" data-course-id="${course.course_id}">Enroll Now</button>`;
+
+                courseCard.innerHTML = `
+                    <div class="card course-card">
+                        <img src="${course.course_img}" alt="${course.course_title}">
+                        <div class="card-body">
+                            <h5 class="card-title">${course.course_title}</h5>
+                            ${buttonHTML}
                         </div>
                     </div>
                 `;
+
+                courseGrid.appendChild(courseCard);
+            });
+
+            // Add event listeners to all enroll buttons
+            document.querySelectorAll(".enroll-btn").forEach(button => {
+                button.addEventListener("click", function () {
+                    const courseId = this.getAttribute("data-course-id");
+                    enrollCourse(courseId, this);
+                });
             });
         }
+
+        // Function to enroll in a course
+        function enrollCourse(courseId, button) {
+            button.disabled = true; // Disable button to prevent multiple clicks
+
+            fetch("enrollCourse.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `course_id=${courseId}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                if (data.status === "success") {
+                    button.classList.remove("enroll-btn", "btn-primary");
+                    button.classList.add("btn-success");
+                    button.textContent = "Enrolled ✅"; // Update button text after successful enrollment
+                   button.disabled = true;
+                } else {
+                    button.disabled = false; // Re-enable button if error occurs
+                }
+            })
+            .catch(error => {
+                console.error("Error enrolling:", error);
+                button.disabled = false;
+            });
+        }
+
+
+
+    
 
        // Render Courses for Lecturers (List View)
        function renderLecturerCourses(courses) {
