@@ -17,3 +17,4 @@ if (isset($_GET['course_id'])) {
     echo json_encode($materials);
 }
 ?>
+

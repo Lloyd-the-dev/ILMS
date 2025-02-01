@@ -139,12 +139,33 @@ $firstname = $_SESSION["firstname"];
                     }
 
                     materials.forEach(material => {
-                        materialContent.innerHTML += `
-                            <div class="material-item">
-                                <h6>${material.file_name}</h6>
-                                <a href="${material.file_path}" target="_blank" class="btn btn-info">View Material</a>
-                            </div>
-                        `;
+                        const fileExtension = material.file_path.split('.').pop().toLowerCase();
+
+                        if (fileExtension === "pdf") {
+                            // Embed PDF using an iframe
+                            materialContent.innerHTML += `
+                                <div class="material-item">
+                                    <h6>${material.file_name}</h6>
+                                    <iframe src="${material.file_path}" width="100%" height="500px" style="border: none;"></iframe>
+                                </div>
+                            `;
+                        } else if (fileExtension === "ppt" || fileExtension === "pptx") {
+                            // Convert PowerPoint to PDF or use an online viewer
+                            materialContent.innerHTML += `
+                                <div class="material-item">
+                                    <h6>${material.file_name}</h6>
+                                    <p>PowerPoint files cannot be displayed directly. <a href="${material.file_path}" target="_blank">Download</a></p>
+                                </div>
+                            `;
+                        } else {
+                            // For other file types, provide a download link
+                            materialContent.innerHTML += `
+                                <div class="material-item">
+                                    <h6>${material.file_name}</h6>
+                                    <a href="${material.file_path}" target="_blank" class="btn btn-info">Download</a>
+                                </div>
+                            `;
+                        }
                     });
 
                     // Show the modal
@@ -153,7 +174,6 @@ $firstname = $_SESSION["firstname"];
                 })
                 .catch(error => console.error("Error fetching course materials:", error));
         }
-
 
     </script>
 </body>
