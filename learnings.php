@@ -73,6 +73,21 @@ $firstname = $_SESSION["firstname"];
 
         <div class="row mt-3" id="learningsGrid"></div>
     </div>
+    <!-- Add a modal for displaying course materials -->
+    <div class="modal" id="courseMaterialModal" tabindex="-1" aria-labelledby="courseMaterialModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="courseMaterialModalLabel">Course Materials</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="courseMaterialContent">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -100,7 +115,7 @@ $firstname = $_SESSION["firstname"];
                                     <img src="${course.course_img}" alt="${course.course_title}">
                                     <div class="card-body">
                                         <h5 class="card-title">${course.course_title}</h5>
-                                        <button class="btn btn-primary">Access Course</button>
+                                        <button class="btn btn-primary" onclick="accessCourse(${course.course_id})">Access Course</button>
                                     </div>
                                 </div>
                             </div>
@@ -109,6 +124,37 @@ $firstname = $_SESSION["firstname"];
                 })
                 .catch(error => console.error("Error fetching learnings:", error));
         }
+
+        function accessCourse(courseId) {
+            // Fetch the course materials based on the courseId
+            fetch(`fetchCourseMaterials.php?course_id=${courseId}`)
+                .then(response => response.json())
+                .then(materials => {
+                    const materialContent = document.getElementById("courseMaterialContent");
+                    materialContent.innerHTML = ""; // Clear previous content
+
+                    if (materials.length === 0) {
+                        materialContent.innerHTML = "<p>No materials available for this course.</p>";
+                        return;
+                    }
+
+                    materials.forEach(material => {
+                        materialContent.innerHTML += `
+                            <div class="material-item">
+                                <h6>${material.file_name}</h6>
+                                <a href="${material.file_path}" target="_blank" class="btn btn-info">View Material</a>
+                            </div>
+                        `;
+                    });
+
+                    // Show the modal
+                    const modal = new bootstrap.Modal(document.getElementById('courseMaterialModal'));
+                    modal.show();
+                })
+                .catch(error => console.error("Error fetching course materials:", error));
+        }
+
+
     </script>
 </body>
 </html>

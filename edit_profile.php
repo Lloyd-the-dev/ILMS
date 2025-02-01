@@ -74,7 +74,11 @@ if ($result->num_rows > 0) {
                <li><a href="courses.php">Courses</a></li>
                <li><a href="#">About us</a></li>
                <li><a href="edit_profile.php" id="active">Profile</a></li>
-               <li><a href="learnings.php">Learnings</a></li>
+               <?php if ($accType == "Student") {?>
+                    <li><a href="learnings.php">Learnings</a></li>
+               <?php }else { ?>
+                   <li><a href="manage_courses.php">My Courses</a></li>
+                <?php } ?>
             </ul>
             <button class="login-btn"><a href="index.html">Logout</a></button>
          </nav>

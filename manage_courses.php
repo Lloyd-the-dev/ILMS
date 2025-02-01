@@ -191,7 +191,7 @@ $firstname = $_SESSION["firstname"];
                             document.getElementById("upload_course_id").value = courseId; // Set the course_id in the upload modal
                             fetchCourseMaterials(courseId);  // Load the materials for that course
                         });
-                    });
+                    }); 
                 })
                 .catch(error => console.error("Error fetching courses:", error));
         }

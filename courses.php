@@ -128,7 +128,11 @@
             <li><a href="courses.php" id="active">Courses</a></li>
             <li><a href="#">About us</a></li>
             <li><a href="edit_profile.php">Profile</a></li>
-            <li><a href="learnings.php">Learnings</a></li>
+            <?php if ($accType == "Student") {?>
+               <li><a href="learnings.php">Learnings</a></li>
+            <?php }else { ?>
+               <li><a href="manage_courses.php">My Courses</a></li>
+            <?php } ?>
         </ul>
         <button class="login-btn"><a href="index.html">Logout</a></button>
     </nav>
