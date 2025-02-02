@@ -113,12 +113,13 @@ $firstname = $_SESSION["firstname"];
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+
         // Check if pdfjsLib is available
-if (typeof pdfjsLib === "undefined") {
-    console.error("pdfjsLib is not loaded. Check your script source.");
-} else {
-    console.log("pdfjsLib loaded successfully.");
-}
+        if (typeof pdfjsLib === "undefined") {
+            console.error("pdfjsLib is not loaded. Check your script source.");
+        } else {
+            console.log("pdfjsLib loaded successfully.");
+        }
 
         document.addEventListener("DOMContentLoaded", function () {
             fetchLearnings();
@@ -264,36 +265,51 @@ if (typeof pdfjsLib === "undefined") {
     }
 }
 
-    async function generateQuizQuestions(textContent) {
-        try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `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`
-                },
-                body: JSON.stringify({
-                    model: "gpt-4", // or "gpt-3.5-turbo"
-                    messages: [
-                        {
-                            role: "system",
-                            content: "You are a helpful assistant that generates quiz questions based on the provided text."
-                        },
-                        {
-                            role: "user",
-                            content: `Generate 5 quiz questions based on the following text: ${textContent}`
-                        }
-                    ]
-                })
-            });
+async function generateQuizQuestions(textContent) {
+    try {
+        console.log("Sending request to OpenAI API...");
 
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer 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`, // Make sure your key is correct
+            },
+            body: JSON.stringify({
+                model: "gpt-3.5-turbo", // or "gpt-3.5-turbo"
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are a helpful assistant that generates quiz questions based on the provided text."
+                    },
+                    {
+                        role: "user",
+                        content: `Generate 5 quiz questions based on the following text: ${textContent}`
+                    }
+                ]
+            })
+        });
+
+        console.log("Received response from OpenAI:", response);
+
+        // Check if the response is okay
+        if (response.ok) {
             const data = await response.json();
-            return data.choices[0].message.content; // Assuming the API returns the questions in a structured format
-        } catch (error) {
-            console.error("Error generating quiz questions:", error);
-            return [];
+            console.log("API response data:", data);
+
+            // Assuming the API returns the questions in a structured format
+            return data.choices[0].message.content; // This is where your quiz questions should be
+        } else {
+            const errorData = await response.json();
+            console.error("Error from OpenAI API:", errorData);
+            throw new Error(`API Error: ${errorData.error.message}`);
         }
+    } catch (error) {
+        console.error("Error generating quiz questions:", error);
+        return [];
     }
+}
+
 
     function displayQuiz(questions) {
         const quizContent = document.getElementById("quizContent");
