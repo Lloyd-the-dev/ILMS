@@ -88,6 +88,25 @@ $firstname = $_SESSION["firstname"];
         </div>
     </div>
 
+    <!-- Quiz Modal -->
+    <div class="modal" id="quizModal" tabindex="-1" aria-labelledby="quizModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quizModalLabel">Quiz</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="quizContent">
+                    <!-- Quiz questions will be inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="submitQuiz()">Submit Quiz</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -147,6 +166,7 @@ $firstname = $_SESSION["firstname"];
                                 <div class="material-item">
                                     <h6>${material.file_name}</h6>
                                     <iframe src="${material.file_path}" width="100%" height="500px" style="border: none;"></iframe>
+                                    <button id="quizButton" class="btn btn-primary" onclick="startQuiz('${courseId}')">Take Quiz</button>
                                 </div>
                             `;
                         } else if (fileExtension === "ppt" || fileExtension === "pptx") {
@@ -155,6 +175,7 @@ $firstname = $_SESSION["firstname"];
                                 <div class="material-item">
                                     <h6>${material.file_name}</h6>
                                     <p>PowerPoint files cannot be displayed directly. <a href="${material.file_path}" target="_blank">Download</a></p>
+                                    <button id="quizButton" class="btn btn-primary" onclick="startQuiz('${courseId}')">Take Quiz</button>
                                 </div>
                             `;
                         } else {
@@ -175,6 +196,121 @@ $firstname = $_SESSION["firstname"];
                 .catch(error => console.error("Error fetching course materials:", error));
         }
 
+        async function startQuiz(courseId) {
+        // Fetch the course materials
+        const response = await fetch(`fetchCourseMaterials.php?course_id=${courseId}`);
+        const materials = await response.json();
+
+        // Extract text from PDF materials
+        let textContent = '';
+        for (const material of materials) {
+            if (material.file_path.endsWith('.pdf')) {
+                const pdfText = await extractTextFromPDF(material.file_path);
+                textContent += pdfText;
+            }
+        }
+
+        // Generate quiz questions using ChatGPT API
+        const quizQuestions = await generateQuizQuestions(textContent);
+
+        // Display quiz questions
+        displayQuiz(quizQuestions);
+    }
+
+    async function extractTextFromPDF(pdfUrl) {
+        try {
+            const response = await fetch(pdfUrl);
+            const pdfData = await response.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+            let textContent = '';
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const text = await page.getTextContent();
+                textContent += text.items.map(item => item.str).join(' ');
+            }
+
+            return textContent;
+        } catch (error) {
+            console.error("Error extracting text from PDF:", error);
+            return '';
+        }
+    }
+
+    async function generateQuizQuestions(textContent) {
+        try {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer YOUR_OPENAI_API_KEY`
+                },
+                body: JSON.stringify({
+                    model: "gpt-4", // or "gpt-3.5-turbo"
+                    messages: [
+                        {
+                            role: "system",
+                            content: "You are a helpful assistant that generates quiz questions based on the provided text."
+                        },
+                        {
+                            role: "user",
+                            content: `Generate 5 quiz questions based on the following text: ${textContent}`
+                        }
+                    ]
+                })
+            });
+
+            const data = await response.json();
+            return data.choices[0].message.content; // Assuming the API returns the questions in a structured format
+        } catch (error) {
+            console.error("Error generating quiz questions:", error);
+            return [];
+        }
+    }
+
+    function displayQuiz(questions) {
+        const quizContent = document.getElementById("quizContent");
+        quizContent.innerHTML = ""; // Clear previous content
+
+        questions.forEach((question, index) => {
+            quizContent.innerHTML += `
+                <div class="quiz-question">
+                    <h6>Question ${index + 1}: ${question}</h6>
+                    <input type="text" id="answer${index}" placeholder="Your answer">
+                </div>
+            `;
+        });
+
+        // Show the quiz modal
+        const quizModal = new bootstrap.Modal(document.getElementById('quizModal'));
+        quizModal.show();
+    }
+
+    function submitQuiz() {
+        const quizContent = document.getElementById("quizContent");
+        const answers = [];
+        quizContent.querySelectorAll('.quiz-question input').forEach(input => {
+            answers.push(input.value);
+        });
+
+        // Validate answers (this is a simple example, you might want to send answers to the server for validation)
+        const correctAnswers = validateAnswers(answers);
+
+        if (correctAnswers >= 3) { // Example threshold
+            alert("Quiz passed! You can proceed to the next material.");
+            // Enable next material
+        } else {
+            alert("Quiz failed. Please review the material and try again.");
+        }
+    }
+
+    function validateAnswers(answers) {
+        // Implement your validation logic here
+        // This could involve sending answers to the server for validation
+        return answers.filter(answer => answer.trim() !== "").length; // Example: count non-empty answers
+    }
+    
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-parse/1.1.1/pdf-parse.min.js"></script>
 </body>
 </html>
