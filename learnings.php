@@ -23,8 +23,9 @@ $firstname = $_SESSION["firstname"];
 
     <link rel="stylesheet" href="./css/navbar.css">
     <link rel="stylesheet" href="./css/dashboard.css">
-    <script src="./js/index.js" defer></script>
-
+    <script src="./js/index.js" defer></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.min.js" integrity="sha512-Z8CqofpIcnJN80feS2uccz+pXWgZzeKxDsDNMD/dJ6997/LSRY+W4NmEt9acwR+Gt9OHN0kkI1CTianCwoqcjQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js" integrity="sha512-lHibs5XrZL9hXP3Dhr/d2xJgPy91f2mhVAasrSbMkbmoTSm2Kz8DuSWszBLUg31v+BM6tSiHSqT72xwjaNvl0g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         .course-card {
             border-radius: 10px;
@@ -110,7 +111,15 @@ $firstname = $_SESSION["firstname"];
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
     <script>
+        // Check if pdfjsLib is available
+if (typeof pdfjsLib === "undefined") {
+    console.error("pdfjsLib is not loaded. Check your script source.");
+} else {
+    console.log("pdfjsLib loaded successfully.");
+}
+
         document.addEventListener("DOMContentLoaded", function () {
             fetchLearnings();
         });
@@ -218,24 +227,42 @@ $firstname = $_SESSION["firstname"];
     }
 
     async function extractTextFromPDF(pdfUrl) {
-        try {
-            const response = await fetch(pdfUrl);
-            const pdfData = await response.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
-            let textContent = '';
+    try {
+        console.log(`Fetching PDF from URL: ${pdfUrl}`);
 
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const text = await page.getTextContent();
-                textContent += text.items.map(item => item.str).join(' ');
-            }
-
-            return textContent;
-        } catch (error) {
-            console.error("Error extracting text from PDF:", error);
-            return '';
+        const response = await fetch(pdfUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch PDF. Status: ${response.status}`);
         }
+
+        const pdfData = await response.arrayBuffer();
+        console.log("PDF data fetched successfully.");
+
+        const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+        console.log(`PDF loaded successfully. Number of pages: ${pdf.numPages}`);
+
+        let textContent = '';
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            console.log(`Processing page ${i}...`);
+
+            const text = await page.getTextContent();
+            console.log(`Raw text content from page ${i}:`, text);
+
+            const extractedText = text.items.map(item => item.str).join(' ');
+            console.log(`Extracted text from page ${i}:`, extractedText);
+
+            textContent += extractedText + '\n'; // Adding newline for readability
+        }
+
+        console.log("Final extracted text:", textContent);
+        return textContent;
+    } catch (error) {
+        console.error("Error extracting text from PDF:", error);
+        return '';
     }
+}
 
     async function generateQuizQuestions(textContent) {
         try {
@@ -243,7 +270,7 @@ $firstname = $_SESSION["firstname"];
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer YOUR_OPENAI_API_KEY`
+                    'Authorization': `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`
                 },
                 body: JSON.stringify({
                     model: "gpt-4", // or "gpt-3.5-turbo"
@@ -311,6 +338,5 @@ $firstname = $_SESSION["firstname"];
     }
     
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-parse/1.1.1/pdf-parse.min.js"></script>
 </body>
 </html>
