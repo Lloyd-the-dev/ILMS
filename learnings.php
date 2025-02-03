@@ -114,6 +114,9 @@ $firstname = $_SESSION["firstname"];
     
     <script>
 
+        require('dotenv').config();
+        const apiKey = process.env.OPENAI_API_KEY;
+
         // Check if pdfjsLib is available
         if (typeof pdfjsLib === "undefined") {
             console.error("pdfjsLib is not loaded. Check your script source.");
@@ -273,7 +276,7 @@ async function generateQuizQuestions(textContent) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer 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`, // Make sure your key is correct
+                'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
             },
             body: JSON.stringify({
                 model: "gpt-3.5-turbo", // or "gpt-3.5-turbo"
