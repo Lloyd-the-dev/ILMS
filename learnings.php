@@ -114,8 +114,6 @@ $firstname = $_SESSION["firstname"];
     
     <script>
 
-        require('dotenv').config();
-        const apiKey = process.env.OPENAI_API_KEY;
 
         // Check if pdfjsLib is available
         if (typeof pdfjsLib === "undefined") {
@@ -127,6 +125,7 @@ $firstname = $_SESSION["firstname"];
         document.addEventListener("DOMContentLoaded", function () {
             fetchLearnings();
         });
+
 
         function fetchLearnings() {
             fetch("fetchLearnings.php")
@@ -276,18 +275,18 @@ async function generateQuizQuestions(textContent) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+                'Authorization': `Bearer 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`
             },
             body: JSON.stringify({
-                model: "gpt-3.5-turbo", // or "gpt-3.5-turbo"
+                model: "gpt-3.5-turbo",
                 messages: [
                     {
                         role: "system",
-                        content: "You are a helpful assistant that generates quiz questions based on the provided text."
+                        content: "You are a helpful assistant that generates multiple-choice quiz questions based on the provided text."
                     },
                     {
                         role: "user",
-                        content: `Generate 5 quiz questions based on the following text: ${textContent}`
+                        content: `Generate 5 quiz questions based on the following text:\n${textContent}\n Format: Q1) Question text? \nA) Option1 \nB) Option2 \nC) Option3 \nD) Option4 \nAnswer: A`
                     }
                 ]
             })
@@ -295,13 +294,16 @@ async function generateQuizQuestions(textContent) {
 
         console.log("Received response from OpenAI:", response);
 
-        // Check if the response is okay
         if (response.ok) {
             const data = await response.json();
             console.log("API response data:", data);
 
-            // Assuming the API returns the questions in a structured format
-            return data.choices[0].message.content; // This is where your quiz questions should be
+            const rawQuestions = data.choices[0].message.content;
+            console.log("Raw Quiz Text:", rawQuestions);
+
+            // Split the response into individual questions
+            const questionsArray = rawQuestions.split("\n").filter(line => line.trim() !== "");
+            return questionsArray;  // Return formatted questions
         } else {
             const errorData = await response.json();
             console.error("Error from OpenAI API:", errorData);
@@ -314,23 +316,47 @@ async function generateQuizQuestions(textContent) {
 }
 
 
-    function displayQuiz(questions) {
-        const quizContent = document.getElementById("quizContent");
-        quizContent.innerHTML = ""; // Clear previous content
+function displayQuiz(questions) {
+    const quizContent = document.getElementById("quizContent");
+    quizContent.innerHTML = ""; // Clear previous content
 
-        questions.forEach((question, index) => {
-            quizContent.innerHTML += `
-                <div class="quiz-question">
-                    <h6>Question ${index + 1}: ${question}</h6>
-                    <input type="text" id="answer${index}" placeholder="Your answer">
-                </div>
-            `;
-        });
+    let currentQuestion = "";
+    let options = [];
 
-        // Show the quiz modal
-        const quizModal = new bootstrap.Modal(document.getElementById('quizModal'));
-        quizModal.show();
+    questions.forEach(line => {
+        if (line.startsWith("Q")) {
+            // If we already have a question, display it before moving to the next one
+            if (currentQuestion) {
+                quizContent.innerHTML += `
+                    <div class="quiz-question">
+                        <h6>${currentQuestion}</h6>
+                        ${options.map(option => `<label><input type="radio" name="${currentQuestion}" value="${option}"> ${option}</label><br>`).join("")}
+                    </div>
+                `;
+            }
+            // Start new question
+            currentQuestion = line;
+            options = [];
+        } else if (line.match(/^[A-D]\)/)) {
+            // Add options (A, B, C, D)
+            options.push(line);
+        }
+    });
+
+    // Display the last question
+    if (currentQuestion) {
+        quizContent.innerHTML += `
+            <div class="quiz-question">
+                <h6>${currentQuestion}</h6>
+                ${options.map(option => `<label><input type="radio" name="${currentQuestion}" value="${option}"> ${option}</label><br>`).join("")}
+            </div>
+        `;
     }
+
+    // Show the quiz modal
+    const quizModal = new bootstrap.Modal(document.getElementById('quizModal'));
+    quizModal.show();
+}
 
     function submitQuiz() {
         const quizContent = document.getElementById("quizContent");
