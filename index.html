@@ -70,7 +70,7 @@
                         <select id="department" name="department" required></select>
                         <label>Department</label>
                     </div>
-                    <div class="input-field" id="inp">
+                    <div class="input-field" id="levelField">
                         <select id="level" name="level" required>
                             <option value="100">100LEVEL</option>
                             <option value="200">200LEVEL</option>
@@ -80,7 +80,7 @@
                         </select>
                         <label>Level</label>
                     </div>
-                     <div class="input-field" id="inp">
+                     <div class="input-field" id="accTypeField">
                         <select id="accType" name="accType" required>
                             <option>Student</option>
                             <option>Lecturer</option>
@@ -121,6 +121,26 @@
             });
         })
         .catch(error => console.error('Error fetching department names:', error));
+        
+        document.addEventListener("DOMContentLoaded", function () {
+        const levelField = document.getElementById("levelField");
+        const accTypeDropdown = document.getElementById("accType");
+
+        // Function to toggle visibility of the Level field
+        function toggleLevelField() {
+            if (accTypeDropdown.value === "Lecturer") {
+                levelField.style.display = "none"; // Hide the Level field
+            } else {
+                levelField.style.display = "block"; // Show the Level field
+            }
+        }
+
+        // Initial check (in case Lecturer is pre-selected)
+        toggleLevelField();
+
+        // Add event listener to the Account Type dropdown
+        accTypeDropdown.addEventListener("change", toggleLevelField);
+    });
     </script>
 </body>
 </html>

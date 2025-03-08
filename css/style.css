@@ -178,7 +178,7 @@ form .input-field {
     width: 100%;
     margin-top: 20px;
 }
-#inp{
+#inp, #levelField, #accTypeField{
     margin-bottom: 2rem;
 }
 .input-field input, .input-field select {
