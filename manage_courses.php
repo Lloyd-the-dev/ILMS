@@ -60,6 +60,34 @@ $firstname = $_SESSION["firstname"];
         .upload-btn:hover {
             background-color: #0056b3;
         }
+        .list-group-item {
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .list-group-item strong {
+            font-weight: 600;
+        }
+        .material-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            width: 100%; 
+        }
+
+        .material-item a {
+            flex: 1; 
+            margin-right: 10px; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+        }
+
+        .material-item .btn {
+            white-space: nowrap; /* Prevent button text from wrapping */
+        }
     </style>
 </head>
 <body>
@@ -130,6 +158,20 @@ $firstname = $_SESSION["firstname"];
             </div>
         </div>
     </div>
+    <!-- Quiz Results Modal -->
+    <div class="modal fade" id="quizResultsModal" tabindex="-1" aria-labelledby="quizResultsLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quizResultsLabel">Quiz Results</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="quizResultsContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         document.getElementById("uploadForm").addEventListener("submit", function (event) {
@@ -195,6 +237,46 @@ $firstname = $_SESSION["firstname"];
                 })
                 .catch(error => console.error("Error fetching courses:", error));
         }
+
+        function viewQuizResults(materialId) {
+            fetch(`fetchQuizResults.php?material_id=${materialId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const quizResultsContent = document.getElementById("quizResultsContent");
+                    quizResultsContent.innerHTML = "";
+
+                    if (data.length === 0) {
+                        quizResultsContent.innerHTML = "<p class='text-muted'>No quiz results available for this material.</p>";
+                        return;
+                    }
+
+                    // Display the number of students who passed and failed
+                    const passedCount = data.filter(result => result.status === "passed").length;
+                    const failedCount = data.filter(result => result.status === "failed").length;
+
+                    quizResultsContent.innerHTML = `
+                        <p><strong>Passed:</strong> ${passedCount}</p>
+                        <p><strong>Failed:</strong> ${failedCount}</p>
+                        <hr>
+                        <h6>Detailed Results:</h6>
+                        <ul class="list-group">
+                            ${data.map(result => `
+                                <li class="list-group-item">
+                                    <strong>Student:</strong> ${result.firstname} ${result.lastname}<br>
+                                    <strong>Status:</strong> ${result.status}<br>
+                                    <strong>Attempt Date:</strong> ${result.attempt_date}
+                                </li>
+                            `).join("")}
+                        </ul>
+                    `;
+
+                    // Show the quiz results modal
+                    const quizResultsModal = new bootstrap.Modal(document.getElementById('quizResultsModal'));
+                    quizResultsModal.show();
+                })
+                .catch(error => console.error("Error fetching quiz results:", error));
+        }
+
         function fetchCourseMaterials(courseId) {
             fetch("fetchMaterials.php?course_id=" + courseId)
                 .then(response => response.json())
@@ -209,9 +291,12 @@ $firstname = $_SESSION["firstname"];
 
                     data.forEach(material => {
                         materialsList.innerHTML += `
-                            <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
-                                <a href="${material.file_path}" target="_blank">${material.file_name}</a>
-                                <button class="btn btn-danger btn-sm" onclick="deleteMaterial(${material.material_id})">Delete</button>
+                            <div class="material-item">
+                                <a href="${material.file_path}" target="_blank" title="${material.file_name}">${material.file_name}</a>
+                                <div>
+                                    <button class="btn btn-info btn-sm me-2" onclick="viewQuizResults(${material.material_id})">View Quiz Results</button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteMaterial(${material.material_id})">Delete</button>
+                                </div>
                             </div>
                         `;
                     });
