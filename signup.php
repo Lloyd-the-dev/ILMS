@@ -6,6 +6,7 @@ if (isset($_POST["submit"])) {
     $password = mysqli_real_escape_string($conn, $_POST["password"]);
     $accType = mysqli_real_escape_string($conn, $_POST["accType"]);
     $department = mysqli_real_escape_string($conn, $_POST["department"]);
+    $level = mysqli_real_escape_string($conn, $_POST["level"]);
     $firstLogin = 1;
 
     // Check if email exists
@@ -20,9 +21,9 @@ if (isset($_POST["submit"])) {
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
         
         // Insert new user
-        $sql = "INSERT INTO users (email, password, accType, department, first_login) VALUES (?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO users (email, password, accType, department, level, first_login) VALUES (?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssssi", $email, $hashedPassword, $accType, $department, $firstLogin);
+        $stmt->bind_param("ssssii", $email, $hashedPassword, $accType, $department, $level, $firstLogin);
 
         if ($stmt->execute()) {
             echo '<script>alert("Account successfully created"); window.location.href = "index.html";</script>';

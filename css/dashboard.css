@@ -7,7 +7,7 @@
     font-family: "Open Sans", sans-serif;
 }
 body {
-    height: 100vh;
+    height: 100%;
     width: 100%;
     background: url("../img/education.jpg") center/cover no-repeat;
 }

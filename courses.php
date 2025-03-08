@@ -4,6 +4,7 @@
    $userId = $_SESSION["user_id"];
    $firstname = $_SESSION["firstname"];
    $accType = $_SESSION["accType"];
+    $department = $_SESSION["department"];
 ?>
 
 <!DOCTYPE html>
@@ -118,7 +119,7 @@
 
     <nav class="navbar">
         <span class="hamburger-btn material-symbols-rounded">menu</span>
-        <a href="#" class="logo">
+        <a href="dashboard.php" class="logo">
             <h1>🚀</h1>
             <h2>LearnSphere</h2>
         </a>
@@ -126,7 +127,7 @@
             <span class="close-btn material-symbols-rounded">close</span>
             <li><a href="dashboard.php">Home</a></li>
             <li><a href="courses.php" id="active">Courses</a></li>
-            <li><a href="#">About us</a></li>
+            <li><a href="about.php">About us</a></li>
             <li><a href="edit_profile.php">Profile</a></li>
             <?php if ($accType == "Student") {?>
                <li><a href="learnings.php">Learnings</a></li>
@@ -171,7 +172,17 @@
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Department</label>
-                                    <select class="form-control" id="department" name="department" required></select>
+                                    <input type="text" class="form-control" id="department" name="department" readonly value="<?php echo $department; ?>">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Level</label>
+                                    <select class="form-control" id="level" name="level" required>
+                                        <option value="100">100LEVEL</option>
+                                        <option value="200">200LEVEL</option>
+                                        <option value="300">300LEVEL</option>
+                                        <option value="400">400LEVEL</option>
+                                        <option value="500">500LEVEL</option>
+                                    </select>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Course Image</label>
@@ -207,6 +218,16 @@
                                     <label class="form-label">Department</label>
                                     <select class="form-control" id="edit_department" name="department" required></select>
                                 </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Level</label>
+                                    <select class="form-control" id="level" name="level" required>
+                                        <option value="100">100LEVEL</option>
+                                        <option value="200">200LEVEL</option>
+                                        <option value="300">300LEVEL</option>
+                                        <option value="400">400LEVEL</option>
+                                        <option value="500">500LEVEL</option>
+                                    </select>
+                                </div>
                                 <button type="submit" class="btn btn-primary">Update Course</button>
                             </form>
                         </div>
@@ -222,7 +243,7 @@
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             fetchCourses();
-            fetchDepartments();
+            fetchDepartments("department");
         });
 
         // Fetch Courses & Render
@@ -327,7 +348,6 @@
                                 data-course-code="${course.course_code}" 
                                 data-course-title="${course.course_title}" 
                                 data-department="${course.department}">✏️</button>
-                        <button class="test-btn">Test</button>
                     </div>
                 `;
                 courseList.appendChild(courseItem);
@@ -411,7 +431,7 @@
 
         // Fetch Departments and Populate Dropdown
         function fetchDepartments(dropdownId, selectedDepartment = null) {
-            fetch('./fetchDepartment.php')
+            fetch('fetchDepartment.php')
                 .then(response => response.json())
                 .then(data => {
                     const departmentDropdown = document.getElementById(dropdownId);

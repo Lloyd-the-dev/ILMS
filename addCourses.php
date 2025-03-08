@@ -1,10 +1,13 @@
 <?php
 include "config.php";
+session_start();
+$userId = $_SESSION["user_id"];
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $courseCode = $_POST["course_code"];
     $courseTitle = $_POST["course_title"];
     $department = $_POST["department"];
+    $level = $_POST["level"];
     
     // Handle the image upload
     $targetDir = "uploads/"; 
@@ -25,9 +28,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Insert course details into the database
-    $sql = "INSERT INTO courses (course_code, course_title, course_img, department) VALUES (?, ?, ?, ?)";
+    error_log($sql = "INSERT INTO courses (lecturer_id, course_code, course_title, course_img, department, level) VALUES (?, ?, ?, ?, ?, ?)");
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ssss", $courseCode, $courseTitle, $targetFile, $department);
+    $stmt->bind_param("issssi", $userId, $courseCode, $courseTitle, $targetFile, $department, $level);
 
     if ($stmt->execute()) {
         echo json_encode(["status" => "success", "message" => "Course added successfully!"]);

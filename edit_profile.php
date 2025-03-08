@@ -64,7 +64,7 @@ if ($result->num_rows > 0) {
     <header>
          <nav class="navbar">
             <span class="hamburger-btn material-symbols-rounded">menu</span>
-            <a href="#" class="logo">
+            <a href="dashboard.php" class="logo">
                <h1>🚀</h1>
                <h2>LearnSphere</h2>
             </a>
@@ -72,7 +72,7 @@ if ($result->num_rows > 0) {
                <span class="close-btn material-symbols-rounded">close</span>
                <li><a href="dashboard.php">Home</a></li>
                <li><a href="courses.php">Courses</a></li>
-               <li><a href="#">About us</a></li>
+               <li><a href="about.php">About us</a></li>
                <li><a href="edit_profile.php" id="active">Profile</a></li>
                <?php if ($accType == "Student") {?>
                     <li><a href="learnings.php">Learnings</a></li>

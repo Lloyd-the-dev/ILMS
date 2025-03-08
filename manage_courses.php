@@ -66,7 +66,7 @@ $firstname = $_SESSION["firstname"];
 
     <nav class="navbar">
         <span class="hamburger-btn material-symbols-rounded">menu</span>
-        <a href="#" class="logo">
+        <a href="dashboard.php" class="logo">
             <h1>🚀</h1>
             <h2>LearnSphere</h2>
         </a>
@@ -74,7 +74,7 @@ $firstname = $_SESSION["firstname"];
             <span class="close-btn material-symbols-rounded">close</span>
             <li><a href="dashboard.php">Home</a></li>
             <li><a href="courses.php">Courses</a></li>
-            <li><a href="#">About us</a></li>
+            <li><a href="about.php">About us</a></li>
             <li><a href="edit_profile.php">Profile</a></li>
             <li><a href="manage_courses.php" id="active">Manage Courses</a></li>
         </ul>

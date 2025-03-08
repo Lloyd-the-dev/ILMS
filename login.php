@@ -24,7 +24,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $_SESSION["firstname"] = $row["firstname"];
             $_SESSION["mail"] = $row["email"];
             $_SESSION["accType"] = $row["accType"];
+            $_SESSION['department'] = $row['department']; 
             $_SESSION["first_login"] = $row["first_login"];
+            $_SESSION["level"] = $row["level"];
+            $_SESSION["loggedin"] = true;
                         
 
             // Redirect to dashboard
