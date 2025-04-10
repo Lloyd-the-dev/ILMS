@@ -6,7 +6,11 @@ if (isset($_POST["submit"])) {
     $password = mysqli_real_escape_string($conn, $_POST["password"]);
     $accType = mysqli_real_escape_string($conn, $_POST["accType"]);
     $department = mysqli_real_escape_string($conn, $_POST["department"]);
-    $level = mysqli_real_escape_string($conn, $_POST["level"]);
+    if(isset($_POST["level"])){
+        $level = mysqli_real_escape_string($conn, $_POST["level"]);
+    } else {
+        $level = null;
+    }
     $firstLogin = 1;
 
     // Check if email exists

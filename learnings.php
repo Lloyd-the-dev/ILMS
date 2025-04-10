@@ -112,7 +112,10 @@ $firstname = $_SESSION["firstname"];
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
+    
+  
     <script>
+        let currentMaterialId = null;
         // Check if pdfjsLib is available
         if (typeof pdfjsLib === "undefined") {
             console.error("pdfjsLib is not loaded. Check your script source.");
@@ -166,6 +169,9 @@ $firstname = $_SESSION["firstname"];
                 return;
             }
 
+            // Store materials globally for reference
+            window.currentCourseMaterials = materials;
+
             for (let i = 0; i < materials.length; i++) {
                 const material = materials[i];
                 const fileExtension = material.file_path.split('.').pop().toLowerCase();
@@ -173,30 +179,24 @@ $firstname = $_SESSION["firstname"];
                 // Check if the user can attempt this quiz
                 const canAttempt = i === 0 || await checkQuizProgress(materials[i - 1].material_id);
 
-                if (fileExtension === "pdf") {
-                    materialContent.innerHTML += `
-                        <div class="material-item">
-                            <h6>${material.file_name}</h6>
-                            <iframe src="${material.file_path}" width="100%" height="500px" style="border: none;"></iframe>
-                            <button class="btn btn-primary" onclick="${canAttempt ? `startQuiz('${material.material_id}')` : `alert('Woah buddy! Gotta pass the current quiz before moving on.')`}">Take Quiz</button>
-                        </div>
-                    `;
-                } else if (fileExtension === "ppt" || fileExtension === "pptx") {
-                    materialContent.innerHTML += `
-                        <div class="material-item">
-                            <h6>${material.file_name}</h6>
-                            <p>PowerPoint files cannot be displayed directly. <a href="${material.file_path}" target="_blank">Download</a></p>
-                            <button class="btn btn-primary" onclick="${canAttempt ? `startQuiz('${material.material_id}')` : `alert('Woah buddy! Gotta pass the current quiz before moving on.')`}">Take Quiz</button>
-                        </div>
-                    `;
-                } else {
-                    materialContent.innerHTML += `
-                        <div class="material-item">
-                            <h6>${material.file_name}</h6>
-                            <a href="${material.file_path}" target="_blank" class="btn btn-info">Download</a>
-                        </div>
-                    `;
-                }
+                materialContent.innerHTML += `
+                    <div class="material-item" data-material-id="${material.material_id}">
+                        <h6>${material.file_name}</h6>
+                        ${fileExtension === "pdf" ? 
+                            `<iframe src="${material.file_path}" width="100%" height="500px" style="border: none;"></iframe>` :
+                            fileExtension.match(/ppt(x)?/) ? 
+                            `<p>PowerPoint files cannot be displayed directly. <a href="${material.file_path}" target="_blank">Download</a></p>` :
+                            `<a href="${material.file_path}" target="_blank" class="btn btn-info">Download</a>`
+                        }
+                        ${fileExtension === "pdf" ? 
+                            `<button class="btn btn-primary mt-2" onclick="startQuiz(${material.material_id})" 
+                            ${canAttempt ? '' : 'disabled title="Complete previous material first"'}>
+                                Take Quiz
+                            </button>` : 
+                            ''
+                        }
+                    </div>
+                `;
             }
 
             // Show the modal
@@ -204,12 +204,15 @@ $firstname = $_SESSION["firstname"];
             modal.show();
         }
 
-        let currentMaterialId = null;
         async function startQuiz(materialId) {
             try {
                 // Clear old correct answers from localStorage
                 localStorage.removeItem("correctAnswers");
+                
+                // Set the current material ID
                 currentMaterialId = materialId;
+                console.log("Starting quiz for material ID:", currentMaterialId);
+                
                 // Show loading spinner
                 const quizContent = document.getElementById("quizContent");
                 quizContent.innerHTML = `
@@ -224,39 +227,24 @@ $firstname = $_SESSION["firstname"];
                 const quizModal = new bootstrap.Modal(document.getElementById('quizModal'));
                 quizModal.show();
 
-                // Fetch the material data using the single material endpoint
+                // Fetch the material data
                 const response = await fetch(`fetchSingleMaterial.php?material_id=${materialId}`);
-                console.log("Response from fetchSingleMaterial.php:", response);
-
-                // Parse the response as JSON
                 const material = await response.json();
-                console.log("Material data:", material);
 
-                // Ensure the material is a PDF
                 if (material.file_path.endsWith('.pdf')) {
-                    console.log("Extracting text from PDF:", material.file_path);
                     const pdfText = await extractTextFromPDF(material.file_path);
-                    console.log("Extracted text content:", pdfText);
-
-                    // Generate quiz questions using the Gemini API
-                    console.log("Generating quiz questions...");
                     const questions = await generateQuizQuestions(pdfText);
-                    console.log("Generated quiz questions:", questions);
-
                     displayQuiz(questions);
                 } else {
-                    console.error("The material is not a PDF.");
-                    const quizContent = document.getElementById("quizContent");
-                    if (quizContent) {
-                        quizContent.innerHTML = "<p class='text-danger'>The selected material is not a PDF.</p>";
-                    }
+                    quizContent.innerHTML = "<p class='text-danger'>Quizzes can only be generated for PDF materials.</p>";
                 }
             } catch (err) {
                 console.error("Error during quiz generation:", err);
                 const quizContent = document.getElementById("quizContent");
-                if (quizContent) {
-                    quizContent.innerHTML = "<p class='text-danger'>Failed to generate quiz questions. Please try again later.</p>";
-                }
+                quizContent.innerHTML = `
+                    <p class='text-danger'>Failed to generate quiz questions.</p>
+                    <p>Error: ${err.message}</p>
+                `;
             }
         }
 
@@ -423,12 +411,28 @@ $firstname = $_SESSION["firstname"];
             quizModal.show();
         }
 
+       
         async function checkQuizProgress(materialId) {
             try {
                 const response = await fetch(`fetchQuizProgress.php?material_id=${materialId}`);
                 const progress = await response.json();
                 console.log("Quiz progress for material", materialId, ":", progress);
-                return progress.status === 'passed';
+                
+                // Add more detailed logging
+                if (progress.error) {
+                    console.error("Error from fetchQuizProgress.php:", progress.error);
+                    return false;
+                }
+                
+                // The issue might be here - we need to handle both object formats properly
+                // Either {status: 'passed'} or just 'passed'
+                if (typeof progress === 'object' && progress.status) {
+                    return progress.status === 'passed';
+                } else if (typeof progress === 'string') {
+                    return progress === 'passed';
+                }
+                
+                return false;
             } catch (error) {
                 console.error("Error fetching quiz progress:", error);
                 return false;
@@ -444,65 +448,169 @@ $firstname = $_SESSION["firstname"];
                 }
             });
 
-            // Retrieve correct answers from localStorage
             const correctAnswers = JSON.parse(localStorage.getItem("correctAnswers"));
-
-            // Log correct answers and student's answers for debugging
-            console.log("Correct answers:", correctAnswers);
-            console.log("Student's answers:", answers);
-
-            // Validate answers
             let score = 0;
+
             answers.forEach(answer => {
-                // Split the answer into question and selected option
                 const [question, selectedOption] = answer.split(/ (?=[A-D]\))/);
-
-                // Extract the letter (e.g., "B") from the selected option
                 const selectedLetter = selectedOption.trim().charAt(0);
-
-                // Log the question and selected letter for debugging
-                console.log("Checking answer:", selectedLetter, "for question:", question);
-
-                // Compare the selected letter with the correct answer
                 if (correctAnswers[question] === selectedLetter) {
-                    console.log("Answer is correct!");
                     score++;
-                } else {
-                    console.log("Answer is incorrect.");
                 }
             });
 
-            // Log the final score for debugging
-            console.log("Final score:", score);
-
-            // Calculate the pass/fail result
             const totalQuestions = Object.keys(correctAnswers).length;
-            const passThreshold = Math.ceil(totalQuestions * 0.7); // 70% threshold to pass
-            const passed = score >= passThreshold;
+            const passed = score >= Math.ceil(totalQuestions * 0.7);
 
-            // Display the result
             if (passed) {
-                alert(`Quiz passed! You scored ${score}/${totalQuestions}.`);
-                await updateQuizProgress(currentMaterialId, "passed"); // Update progress on the server
+                const updateSuccess = await updateQuizProgress(currentMaterialId, "passed");
+                
+                if (updateSuccess) {
+                    // Then check if we should unlock next material
+                    const courseId = await getCurrentCourseId(); // You'll need to implement this
+                    const canProgress = await checkCourseProgression(courseId);
+                    if (canProgress) {
+                        alert("Success! You can now access the next material.");
+                        // Refresh the materials display
+                        accessCourse(courseId); 
+                    } else {
+                        alert(`Quiz passed! You scored ${score}/${totalQuestions}.`);
+                    }
+                }
             } else {
-                alert(`Quiz failed. You scored ${score}/${totalQuestions}. Please review the material and try again.`);
-                await updateQuizProgress(currentMaterialId, "failed"); // Update progress on the server
+                alert(`Quiz failed. You scored ${score}/${totalQuestions}. Please try again.`);
+                await updateQuizProgress(currentMaterialId, "failed");
             }
         }
 
 
-        async function updateQuizProgress(materialId, status) {
+    
+        async function getCurrentCourseId() {
+            // Implement this based on how you track the current course
+            // Example: return the course ID from a data attribute on your modal
+            const modal = document.getElementById('courseMaterialModal');
+            return modal ? parseInt(modal.dataset.courseId) : null;
+        }
+
+        // Add this function to your JavaScript
+        function testQuizProgress() {
+            if (!currentMaterialId) {
+                console.error("Cannot test quiz progress - no current material selected");
+                return;
+            }
+            
+            console.log("===== QUIZ PROGRESS TESTING =====");
+            console.log(`Testing with current material ID: ${currentMaterialId}`);
+            
+            updateQuizProgress(currentMaterialId, "passed")
+                .then(result => {
+                    console.log(`Update result for material ${currentMaterialId}: ${result}`);
+                    return checkQuizProgress(currentMaterialId);
+                })
+                .then(isPassed => {
+                    console.log(`Check result for material ${currentMaterialId}: ${isPassed ? "Passed" : "Not passed"}`);
+                    if (isPassed) {
+                        console.log("✅ Quiz progress system is working correctly!");
+                    } else {
+                        console.log("❌ Problem detected: Progress was updated but check returned false");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error during test:", error);
+                });
+        }
+
+        async function checkCourseProgression(courseId) {
             try {
+                // Fetch all materials for this course
+                const response = await fetch(`fetchCourseMaterials.php?course_id=${courseId}`);
+                const materials = await response.json();
+                
+                // Check if all previous materials are passed
+                for (let i = 0; i < materials.length; i++) {
+                    const material = materials[i];
+                    
+                    // Don't check materials after the current one
+                    if (material.material_id >= currentMaterialId) break;
+                    
+                    const isPassed = await checkQuizProgress(material.material_id);
+                    if (!isPassed) {
+                        console.log(`Blocking progression - material ${material.material_id} not passed`);
+                        return false;
+                    }
+                }
+                return true;
+            } catch (error) {
+                console.error("Progression check failed:", error);
+                return false;
+            }
+        }
+
+        async function updateQuizProgress(materialId, status) {
+            console.log(`Updating quiz progress: Material ID ${materialId}, Status: ${status}`);
+            
+            try {
+                // Validate inputs before sending
+                if (!materialId || !status) {
+                    console.error("Invalid parameters:", { materialId, status });
+                    return false;
+                }
+                
+                // Ensure materialId is a number and status is a string
+                const validMaterialId = parseInt(materialId, 10);
+                const validStatus = String(status);
+                
+                if (isNaN(validMaterialId) || validMaterialId <= 0) {
+                    console.error("Invalid material ID:", materialId);
+                    return false;
+                }
+                
+                if (validStatus !== "passed" && validStatus !== "failed") {
+                    console.error("Invalid status:", status);
+                    return false;
+                }
+                
+                // Create the data object
+                const data = {
+                    material_id: validMaterialId,
+                    status: validStatus
+                };
+                
+                console.log("Sending data to updateQuizProgress.php:", data);
+                
+                // Send the request
                 const response = await fetch('updateQuizProgress.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ material_id: materialId, status: status }),
+                    body: JSON.stringify(data),
                 });
-                const result = await response.json();
-                console.log("Update quiz progress result:", result);
-                return result.success;
+                
+                console.log(`updateQuizProgress response status: ${response.status}`);
+                
+                // Read response as text first for debugging
+                const responseText = await response.text();
+                console.log(`Raw response from updateQuizProgress.php: ${responseText}`);
+                
+                // Try to parse JSON
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (e) {
+                    console.error("Failed to parse response as JSON:", e);
+                    console.error("Response text was:", responseText);
+                    return false;
+                }
+                
+                // Check for errors
+                if (result.error) {
+                    console.error("Error from server:", result.error);
+                    return false;
+                }
+                
+                console.log("Quiz progress updated successfully:", result);
+                return result.success === true;
             } catch (error) {
                 console.error("Error updating quiz progress:", error);
                 return false;

@@ -5,14 +5,25 @@ session_start();
 $userId = $_SESSION["user_id"];
 $userDepartment = $_SESSION["department"];
 $userLevel = $_SESSION["level"]; 
+$userAccType = $_SESSION["accType"]; 
 
-$sql = "SELECT c.*, 
-               (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.course_id AND e.user_id = ?) AS enrolled
-        FROM courses c
-        WHERE c.department = ? AND c.level = ?"; 
-        
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("isi", $userId, $userDepartment, $userLevel); // Bind the user's level
+if ($userAccType === "Student") {
+    // Fetch courses for students (filter by department and level)
+    $sql = "SELECT c.*, 
+                   (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.course_id AND e.user_id = ?) AS enrolled
+            FROM courses c
+            WHERE c.department = ? AND c.level = ?"; 
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("isi", $userId, $userDepartment, $userLevel);
+} else {
+    // Fetch courses for lecturers (filter by department only)
+    $sql = "SELECT c.* 
+            FROM courses c
+            WHERE c.department = ?"; 
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $userDepartment);
+}
+
 $stmt->execute();
 $result = $stmt->get_result();
 

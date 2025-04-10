@@ -124,14 +124,18 @@
         
         document.addEventListener("DOMContentLoaded", function () {
         const levelField = document.getElementById("levelField");
+        const levelDropdown = document.getElementById("level");
         const accTypeDropdown = document.getElementById("accType");
 
         // Function to toggle visibility of the Level field
         function toggleLevelField() {
             if (accTypeDropdown.value === "Lecturer") {
                 levelField.style.display = "none"; // Hide the Level field
+                levelDropdown.disabled = true; // Disable the Level dropdown
             } else {
                 levelField.style.display = "block"; // Show the Level field
+                levelDropdown.disabled = false; 
+
             }
         }
 
