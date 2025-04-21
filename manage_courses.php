@@ -160,13 +160,19 @@ $firstname = $_SESSION["firstname"];
     </div>
     <!-- Quiz Results Modal -->
     <div class="modal fade" id="quizResultsModal" tabindex="-1" aria-labelledby="quizResultsLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="quizResultsLabel">Quiz Results</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6>Quiz Results</h6>
+                        <button class="btn btn-success" onclick="downloadQuizResults()">
+                            <i class="bi bi-download"></i> Download Results as CSV
+                        </button>
+                    </div>
                     <div id="quizResultsContent"></div>
                 </div>
             </div>
@@ -239,6 +245,11 @@ $firstname = $_SESSION["firstname"];
         }
 
         function viewQuizResults(materialId) {
+            console.log("Viewing quiz results for material ID:", materialId);
+            // Store the current material ID for download
+            window.currentMaterialId = materialId;
+            console.log("Stored material ID:", window.currentMaterialId);
+            
             fetch(`fetchQuizResults.php?material_id=${materialId}`)
                 .then(response => response.json())
                 .then(data => {
@@ -255,19 +266,46 @@ $firstname = $_SESSION["firstname"];
                     const failedCount = data.filter(result => result.status === "failed").length;
 
                     quizResultsContent.innerHTML = `
-                        <p><strong>Passed:</strong> ${passedCount}</p>
-                        <p><strong>Failed:</strong> ${failedCount}</p>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">Passed</h5>
+                                        <h2>${passedCount}</h2>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-danger text-white">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">Failed</h5>
+                                        <h2>${failedCount}</h2>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <hr>
                         <h6>Detailed Results:</h6>
-                        <ul class="list-group">
-                            ${data.map(result => `
-                                <li class="list-group-item">
-                                    <strong>Student:</strong> ${result.firstname} ${result.lastname}<br>
-                                    <strong>Status:</strong> ${result.status}<br>
-                                    <strong>Attempt Date:</strong> ${result.attempt_date}
-                                </li>
-                            `).join("")}
-                        </ul>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Student Name</th>
+                                        <th>Status</th>
+                                        <th>Attempt Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.map(result => `
+                                        <tr>
+                                            <td>${result.firstname} ${result.lastname}</td>
+                                            <td><span class="badge ${result.status === 'passed' ? 'bg-success' : 'bg-danger'}">${result.status}</span></td>
+                                            <td>${result.attempt_date}</td>
+                                        </tr>
+                                    `).join("")}
+                                </tbody>
+                            </table>
+                        </div>
                     `;
 
                     // Show the quiz results modal
@@ -275,6 +313,40 @@ $firstname = $_SESSION["firstname"];
                     quizResultsModal.show();
                 })
                 .catch(error => console.error("Error fetching quiz results:", error));
+        }
+
+        function downloadQuizResults() {
+            console.log("Attempting to download results for material ID:", window.currentMaterialId);
+            if (!window.currentMaterialId) {
+                console.error("No material ID found in window.currentMaterialId");
+                alert("No material selected");
+                return;
+            }
+            
+            // Create a download link
+            fetch(`downloadQuizResults.php?material_id=${window.currentMaterialId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            throw new Error(text || 'Failed to download quiz results');
+                        });
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `quiz_results_${window.currentMaterialId}_${new Date().toISOString().split('T')[0]}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                })
+                .catch(error => {
+                    console.error('Error downloading quiz results:', error);
+                    alert('Error downloading quiz results: ' + error.message);
+                });
         }
 
         function fetchCourseMaterials(courseId) {

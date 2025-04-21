@@ -179,20 +179,80 @@ $firstname = $_SESSION["firstname"];
                 // Check if the user can attempt this quiz
                 const canAttempt = i === 0 || await checkQuizProgress(materials[i - 1].material_id);
 
+                // Function to determine how to display the content
+                const getContentDisplay = (material) => {
+                    const fileExtension = material.file_path.split('.').pop().toLowerCase();
+                    
+                    if (fileExtension === 'pdf') {
+                        // For PDFs, use browser's built-in PDF viewer
+                        return `
+                            <div class="document-viewer-container">
+                                <iframe 
+                                    src="${material.file_path}" 
+                                    width="100%" 
+                                    height="500px" 
+                                    style="border: none;"
+                                    allowfullscreen="true"
+                                ></iframe>
+                            </div>`;
+                    } else if (fileExtension.match(/doc(x)?/) || fileExtension.match(/ppt(x)?/)) {
+                        // For Office documents, show a preview card with document info
+                        const icon = fileExtension.match(/doc(x)?/) ? '📄' : '📊';
+                        return `
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <div class="display-1 mb-3">${icon}</div>
+                                    <h5 class="card-title">${material.file_name}</h5>
+                                    <p class="card-text text-muted">
+                                        ${fileExtension.toUpperCase()} Document
+                                    </p>
+                                    <div class="btn-group">
+                                        <a href="${material.file_path}" 
+                                           class="btn btn-primary" 
+                                           download="${material.file_name}">
+                                            Download to View
+                                        </a>
+                                        <button class="btn btn-success" 
+                                                onclick="markAsRead(${material.material_id})"
+                                                id="markAsRead_${material.material_id}">
+                                            Mark as Read
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>`;
+                    } else {
+                        // For other files, show download button
+                        return `
+                            <div class="alert alert-info">
+                                This file type cannot be previewed.
+                                <br>
+                                <a href="${material.file_path}" 
+                                   class="btn btn-info mt-2" 
+                                   download="${material.file_name}">
+                                    Download File
+                                </a>
+                            </div>`;
+                    }
+                };
+
+                // Get quiz status for this material
+                const quizStatus = await checkQuizProgress(material.material_id);
+                const quizStatusText = quizStatus ? 
+                    `<span class="badge bg-success ms-2">Passed</span>` : 
+                    `<span class="badge bg-warning ms-2">Not Attempted</span>`;
+
                 materialContent.innerHTML += `
                     <div class="material-item" data-material-id="${material.material_id}">
                         <h6>${material.file_name}</h6>
-                        ${fileExtension === "pdf" ? 
-                            `<iframe src="${material.file_path}" width="100%" height="500px" style="border: none;"></iframe>` :
-                            fileExtension.match(/ppt(x)?/) ? 
-                            `<p>PowerPoint files cannot be displayed directly. <a href="${material.file_path}" target="_blank">Download</a></p>` :
-                            `<a href="${material.file_path}" target="_blank" class="btn btn-info">Download</a>`
-                        }
-                        ${fileExtension === "pdf" ? 
-                            `<button class="btn btn-primary mt-2" onclick="startQuiz(${material.material_id})" 
-                            ${canAttempt ? '' : 'disabled title="Complete previous material first"'}>
-                                Take Quiz
-                            </button>` : 
+                        ${getContentDisplay(material)}
+                        ${fileExtension === "pdf" || fileExtension.match(/doc(x)?/) || fileExtension.match(/ppt(x)?/) ? 
+                            `<div class="mt-3">
+                                <button class="btn btn-primary" 
+                                        onclick="startQuiz(${material.material_id})" 
+                                        id="quizBtn_${material.material_id}">
+                                    Take Quiz ${quizStatusText}
+                                </button>
+                            </div>` : 
                             ''
                         }
                     </div>
@@ -229,21 +289,57 @@ $firstname = $_SESSION["firstname"];
 
                 // Fetch the material data
                 const response = await fetch(`fetchSingleMaterial.php?material_id=${materialId}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch material: ${response.status} ${response.statusText}`);
+                }
+                
                 const material = await response.json();
+                const fileExtension = material.file_path.split('.').pop().toLowerCase();
 
-                if (material.file_path.endsWith('.pdf')) {
+                if (fileExtension === 'pdf') {
                     const pdfText = await extractTextFromPDF(material.file_path);
+                    if (!pdfText) {
+                        throw new Error('Failed to extract text from PDF');
+                    }
                     const questions = await generateQuizQuestions(pdfText);
+                    if (!questions || questions.length === 0) {
+                        throw new Error('Failed to generate quiz questions');
+                    }
+                    displayQuiz(questions);
+                } else if (fileExtension.match(/doc(x)?/) || fileExtension.match(/ppt(x)?/)) {
+                    // For Office documents, use the document title and type
+                    const documentInfo = {
+                        title: material.file_name,
+                        type: fileExtension.match(/doc(x)?/) ? 'Word Document' : 'PowerPoint Presentation'
+                    };
+
+                    const questions = await generateQuizQuestions(
+                        `This is a ${documentInfo.type} titled "${documentInfo.title}". ` +
+                        `Please generate questions based on common concepts and topics that would be covered in this type of document.`
+                    );
+                    
+                    if (!questions || questions.length === 0) {
+                        throw new Error('Failed to generate quiz questions');
+                    }
+                    
                     displayQuiz(questions);
                 } else {
-                    quizContent.innerHTML = "<p class='text-danger'>Quizzes can only be generated for PDF materials.</p>";
+                    quizContent.innerHTML = "<p class='text-danger'>Quizzes can only be generated for PDF, DOC, and PowerPoint materials.</p>";
                 }
             } catch (err) {
                 console.error("Error during quiz generation:", err);
                 const quizContent = document.getElementById("quizContent");
                 quizContent.innerHTML = `
-                    <p class='text-danger'>Failed to generate quiz questions.</p>
-                    <p>Error: ${err.message}</p>
+                    <div class="alert alert-danger">
+                        <h5>Failed to generate quiz</h5>
+                        <p>We encountered an error while preparing the quiz. You can:</p>
+                        <ul>
+                            <li>Try refreshing the page</li>
+                            <li>Check your internet connection</li>
+                            <li>Contact support if the issue persists</li>
+                        </ul>
+                        <small class="text-muted">Error details: ${err.message}</small>
+                    </div>
                 `;
             }
         }
@@ -288,8 +384,9 @@ $firstname = $_SESSION["firstname"];
 
         async function generateQuizQuestions(textContent) {
             try {
-                console.log("Sending request to Gemini API...");
+                console.log("Starting quiz generation with text content:", textContent.substring(0, 100) + "...");
 
+                // First, try to generate questions using the Gemini API
                 const response = await fetch(
                     ``,
                     {
@@ -311,32 +408,55 @@ $firstname = $_SESSION["firstname"];
                     }
                 );
 
-                console.log("Received response from Gemini:", response);
-
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log("API response data:", data);
-
-                    // Extract the generated text from the response
-                    const generatedText = data.candidates[0].content.parts[0].text;
-                    console.log("Generated Quiz Text:", generatedText);
-
-                    // Split the response into individual questions
-                    const questionsArray = generatedText.split("\n").filter((line) => line.trim() !== "");
-
-                    // Remove bold formatting (**) from the questions
-                    const cleanedQuestions = questionsArray.map(line => line.replace(/\*\*/g, ''));
-
-                    return cleanedQuestions; // Return formatted questions
-                } else {
-                    const errorData = await response.json();
-                    console.error("Error from Gemini API:", errorData);
-                    throw new Error(`API Error: ${errorData.error.message}`);
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
                 }
+
+                const data = await response.json();
+                console.log("API response data:", data);
+
+                // Extract the generated text from the response
+                const generatedText = data.candidates[0].content.parts[0].text;
+                console.log("Generated Quiz Text:", generatedText);
+
+                // Split the response into individual questions
+                const questionsArray = generatedText.split("\n").filter((line) => line.trim() !== "");
+
+                // Remove bold formatting (**) from the questions
+                const cleanedQuestions = questionsArray.map(line => line.replace(/\*\*/g, ''));
+
+                return cleanedQuestions;
             } catch (error) {
                 console.error("Error generating quiz questions:", error);
-                return [];
+                
+                // Fallback to generating simple questions if API fails
+                console.log("Using fallback question generation");
+                return generateFallbackQuestions(textContent);
             }
+        }
+
+        // Fallback function to generate questions if API fails
+        function generateFallbackQuestions(textContent) {
+            // Extract key sentences from the text
+            const sentences = textContent.split(/[.!?]+/).filter(s => s.trim().length > 20);
+            
+            // Take first 5 sentences or less if not enough
+            const selectedSentences = sentences.slice(0, Math.min(5, sentences.length));
+            
+            // Generate questions based on these sentences
+            return selectedSentences.map((sentence, index) => {
+                const words = sentence.trim().split(' ');
+                // Remove some words to create a question
+                const questionWords = words.filter((_, i) => i % 3 !== 0).join(' ');
+                return [
+                    `Q${index + 1}) ${questionWords}?`,
+                    'A) True',
+                    'B) False',
+                    'C) Maybe',
+                    'D) Not sure',
+                    'Answer: A'
+                ].join('\n');
+            });
         }
 
         function displayQuiz(questions) {
@@ -424,8 +544,7 @@ $firstname = $_SESSION["firstname"];
                     return false;
                 }
                 
-                // The issue might be here - we need to handle both object formats properly
-                // Either {status: 'passed'} or just 'passed'
+                
                 if (typeof progress === 'object' && progress.status) {
                     return progress.status === 'passed';
                 } else if (typeof progress === 'string') {
@@ -466,8 +585,14 @@ $firstname = $_SESSION["firstname"];
                 const updateSuccess = await updateQuizProgress(currentMaterialId, "passed");
                 
                 if (updateSuccess) {
+                    // Update the quiz button to show passed status
+                    const quizButton = document.getElementById(`quizBtn_${currentMaterialId}`);
+                    if (quizButton) {
+                        quizButton.innerHTML = `Take Quiz <span class="badge bg-success ms-2">Passed</span>`;
+                    }
+                    
                     // Then check if we should unlock next material
-                    const courseId = await getCurrentCourseId(); // You'll need to implement this
+                    const courseId = await getCurrentCourseId(); 
                     const canProgress = await checkCourseProgression(courseId);
                     if (canProgress) {
                         alert("Success! You can now access the next material.");
@@ -480,19 +605,24 @@ $firstname = $_SESSION["firstname"];
             } else {
                 alert(`Quiz failed. You scored ${score}/${totalQuestions}. Please try again.`);
                 await updateQuizProgress(currentMaterialId, "failed");
+                
+                // Update the quiz button to show failed status
+                const quizButton = document.getElementById(`quizBtn_${currentMaterialId}`);
+                if (quizButton) {
+                    quizButton.innerHTML = `Take Quiz <span class="badge bg-danger ms-2">Failed</span>`;
+                }
             }
         }
 
 
     
         async function getCurrentCourseId() {
-            // Implement this based on how you track the current course
-            // Example: return the course ID from a data attribute on your modal
+
             const modal = document.getElementById('courseMaterialModal');
             return modal ? parseInt(modal.dataset.courseId) : null;
         }
 
-        // Add this function to your JavaScript
+            
         function testQuizProgress() {
             if (!currentMaterialId) {
                 console.error("Cannot test quiz progress - no current material selected");
@@ -619,6 +749,33 @@ $firstname = $_SESSION["firstname"];
 
         function validateAnswers(answers) {
             return answers.filter(answer => answer.trim() !== "").length;
+        }
+
+        // Add this new function for marking documents as read
+        async function markAsRead(materialId) {
+            const button = document.getElementById(`markAsRead_${materialId}`);
+            const quizButton = document.getElementById(`quizBtn_${materialId}`);
+            
+            try {
+                button.innerHTML = '✓ Marked as Read';
+                button.classList.replace('btn-success', 'btn-secondary');
+                button.disabled = true;
+                
+                // Enable quiz button if it exists
+                if (quizButton) {
+                    quizButton.disabled = false;
+                }
+                
+                // You can add an actual API call here to record this in your database
+                // await fetch('mark_as_read.php', {
+                //     method: 'POST',
+                //     body: JSON.stringify({ material_id: materialId }),
+                //     headers: { 'Content-Type': 'application/json' }
+                // });
+            } catch (error) {
+                console.error('Error marking as read:', error);
+                alert('Failed to mark as read. Please try again.');
+            }
         }
     </script>
 

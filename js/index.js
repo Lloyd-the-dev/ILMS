@@ -4,23 +4,51 @@ const hideMenuBtn = navbarMenu.querySelector(".close-btn");
 const showPopupBtn = document.querySelector(".login-btn");
 const formPopup = document.querySelector(".form-popup");
 const hidePopupBtn = formPopup.querySelector(".close-btn");
+const blurOverlay = document.querySelector(".blur-bg-overlay");
 const signupLoginLink = formPopup.querySelectorAll(".bottom-link a");
-// Show mobile menu
+const coursesLink = document.querySelector(".courses-link");
+
+// Mobile menu toggle
 hamburgerBtn.addEventListener("click", () => {
     navbarMenu.classList.toggle("show-menu");
 });
-// Hide mobile menu
-hideMenuBtn.addEventListener("click", () =>  hamburgerBtn.click());
-// Show login popup
-showPopupBtn.addEventListener("click", () => {
-    document.body.classList.toggle("show-popup");
+
+hideMenuBtn.addEventListener("click", () => hamburgerBtn.click());
+
+// Function to show login popup
+function showLoginPopup() {
+    document.body.classList.add("show-popup"); // Note: matches your CSS class
+    document.querySelector(".form-box.login").classList.add("active");
+    document.querySelector(".form-box.signup").classList.remove("active");
+}
+
+// Show login popup for both login button and courses link
+showPopupBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    showLoginPopup();
 });
-// Hide login popup
-hidePopupBtn.addEventListener("click", () => showPopupBtn.click());
-// Show or hide signup form
+
+coursesLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    showLoginPopup();
+});
+
+// Hide popup
+function hidePopup() {
+    document.body.classList.remove("show-popup");
+}
+
+hidePopupBtn.addEventListener("click", hidePopup);
+blurOverlay.addEventListener("click", hidePopup);
+
+// Toggle between login and signup forms
 signupLoginLink.forEach(link => {
     link.addEventListener("click", (e) => {
         e.preventDefault();
-        formPopup.classList[link.id === 'signup-link' ? 'add' : 'remove']("show-signup");
+        if (link.id === 'signup-link') {
+            formPopup.classList.add("show-signup");
+        } else {
+            formPopup.classList.remove("show-signup");
+        }
     });
 });
