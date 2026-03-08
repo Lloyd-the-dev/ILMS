@@ -179,6 +179,47 @@ $firstname = $_SESSION["firstname"];
         </div>
     </div>
 
+    <!-- Manage Quiz Modal -->
+    <div class="modal fade" id="quizEditorModal" tabindex="-1" aria-labelledby="quizEditorLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quizEditorLabel">Manage Quiz for Material</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="quizEditorForm">
+                        <input type="hidden" id="quiz_material_id" name="material_id">
+                        <div class="mb-3">
+                            <label class="form-label d-block">Quiz Type</label>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="quiz_type" id="quiz_type_ai" value="ai" checked>
+                                <label class="form-check-label" for="quiz_type_ai">Use AI-generated quiz</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="quiz_type" id="quiz_type_custom" value="custom">
+                                <label class="form-check-label" for="quiz_type_custom">Use custom quiz (lecturer-defined)</label>
+                            </div>
+                            <div class="form-text">
+                                Select whether students should see the AI-generated quiz or your own custom questions for this material.
+                            </div>
+                        </div>
+
+                        <div id="customQuizSection">
+                            <h6>Custom Quiz Questions</h6>
+                            <p class="text-muted">Add up to 5 multiple-choice questions (A–D). At least one question is required when using a custom quiz.</p>
+                            <div id="quizQuestionsContainer"></div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="saveQuizBtn">Save Quiz Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         document.getElementById("uploadForm").addEventListener("submit", function (event) {
             event.preventDefault();
@@ -204,6 +245,17 @@ $firstname = $_SESSION["firstname"];
    
         document.addEventListener("DOMContentLoaded", function () {
             fetchLecturerCourses();
+            initQuizForm();
+
+            const aiRadio = document.getElementById("quiz_type_ai");
+            const customRadio = document.getElementById("quiz_type_custom");
+            if (aiRadio) aiRadio.addEventListener("change", updateQuizTypeUI);
+            if (customRadio) customRadio.addEventListener("change", updateQuizTypeUI);
+
+            const saveBtn = document.getElementById("saveQuizBtn");
+            if (saveBtn) {
+                saveBtn.addEventListener("click", saveQuizSettings);
+            }
         });
 
         function fetchLecturerCourses() {
@@ -242,6 +294,248 @@ $firstname = $_SESSION["firstname"];
                     }); 
                 })
                 .catch(error => console.error("Error fetching courses:", error));
+        }
+
+        // Initialize empty quiz form (5 questions)
+        function initQuizForm() {
+            const container = document.getElementById("quizQuestionsContainer");
+            if (!container) return;
+            container.innerHTML = "";
+
+            const totalQuestions = 5;
+            for (let i = 1; i <= totalQuestions; i++) {
+                container.innerHTML += `
+                    <div class="border rounded p-3 mb-3 quiz-question-block" data-index="${i}">
+                        <h6>Question ${i}</h6>
+                        <div class="mb-2">
+                            <label class="form-label">Question Text</label>
+                            <textarea class="form-control" id="q${i}_text" rows="2"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Option A</label>
+                                <input type="text" class="form-control" id="q${i}_optionA">
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Option B</label>
+                                <input type="text" class="form-control" id="q${i}_optionB">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Option C</label>
+                                <input type="text" class="form-control" id="q${i}_optionC">
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Option D</label>
+                                <input type="text" class="form-control" id="q${i}_optionD">
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Correct Option</label>
+                            <select class="form-select" id="q${i}_correct">
+                                <option value="">Select correct option</option>
+                                <option value="A">Option A</option>
+                                <option value="B">Option B</option>
+                                <option value="C">Option C</option>
+                                <option value="D">Option D</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function updateQuizTypeUI() {
+            const useAI = document.getElementById("quiz_type_ai").checked;
+            const customSection = document.getElementById("customQuizSection");
+            const container = document.getElementById("quizQuestionsContainer");
+
+            if (useAI) {
+                if (customSection) customSection.classList.add("opacity-50");
+                if (container) {
+                    container.querySelectorAll("input, textarea, select").forEach(el => {
+                        el.disabled = true;
+                    });
+                }
+            } else {
+                if (customSection) customSection.classList.remove("opacity-50");
+                if (container) {
+                    container.querySelectorAll("input, textarea, select").forEach(el => {
+                        el.disabled = false;
+                    });
+                }
+            }
+        }
+
+        function resetQuizForm() {
+            initQuizForm();
+            const aiRadio = document.getElementById("quiz_type_ai");
+            const customRadio = document.getElementById("quiz_type_custom");
+            if (aiRadio) aiRadio.checked = true;
+            if (customRadio) customRadio.checked = false;
+            updateQuizTypeUI();
+        }
+
+        function openQuizEditor(materialId) {
+            const materialInput = document.getElementById("quiz_material_id");
+            if (!materialInput) return;
+            materialInput.value = materialId;
+
+            // Reset form fields
+            resetQuizForm();
+
+            // Fetch existing quiz configuration (type + questions)
+            fetch(`getMaterialQuiz.php?material_id=${materialId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error("Error loading quiz data:", data.error);
+                        return;
+                    }
+
+                    const quizType = data.quiz_type || "ai";
+                    const aiRadio = document.getElementById("quiz_type_ai");
+                    const customRadio = document.getElementById("quiz_type_custom");
+                    if (quizType === "custom") {
+                        if (customRadio) customRadio.checked = true;
+                        if (aiRadio) aiRadio.checked = false;
+                    } else {
+                        if (aiRadio) aiRadio.checked = true;
+                        if (customRadio) customRadio.checked = false;
+                    }
+
+                    // Populate questions if any
+                    if (Array.isArray(data.questions)) {
+                        data.questions.forEach((q, index) => {
+                            const i = index + 1;
+                            if (i > 5) return; // limit to 5
+                            const qText = document.getElementById(`q${i}_text`);
+                            const qA = document.getElementById(`q${i}_optionA`);
+                            const qB = document.getElementById(`q${i}_optionB`);
+                            const qC = document.getElementById(`q${i}_optionC`);
+                            const qD = document.getElementById(`q${i}_optionD`);
+                            const qCorrect = document.getElementById(`q${i}_correct`);
+
+                            if (qText) qText.value = q.question_text || "";
+                            if (qA) qA.value = q.option_a || "";
+                            if (qB) qB.value = q.option_b || "";
+                            if (qC) qC.value = q.option_c || "";
+                            if (qD) qD.value = q.option_d || "";
+                            if (qCorrect) qCorrect.value = q.correct_option || "";
+                        });
+                    }
+
+                    updateQuizTypeUI();
+                })
+                .catch(error => console.error("Error fetching material quiz:", error));
+
+            const quizModalEl = document.getElementById("quizEditorModal");
+            if (quizModalEl) {
+                const quizModal = new bootstrap.Modal(quizModalEl);
+                quizModal.show();
+            }
+        }
+
+        function saveQuizSettings() {
+            const materialId = document.getElementById("quiz_material_id") ? document.getElementById("quiz_material_id").value : "";
+            const aiRadio = document.getElementById("quiz_type_ai");
+            const useAI = aiRadio ? aiRadio.checked : true;
+
+            if (!materialId) {
+                alert("No material selected.");
+                return;
+            }
+
+            if (useAI) {
+                // Just set quiz type to AI
+                fetch("setQuizType.php", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ material_id: parseInt(materialId), quiz_type: "ai" })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        alert(data.message || "Failed to update quiz type.");
+                        return;
+                    }
+                    alert("Quiz settings saved. Students will see AI-generated quizzes for this material.");
+                    const modalEl = document.getElementById("quizEditorModal");
+                    if (modalEl) {
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) modalInstance.hide();
+                    }
+                })
+                .catch(error => {
+                    console.error("Error updating quiz type:", error);
+                    alert("Error updating quiz type.");
+                });
+                return;
+            }
+
+            // Collect custom questions
+            const questions = [];
+            for (let i = 1; i <= 5; i++) {
+                const qTextEl = document.getElementById(`q${i}_text`);
+                const qAEl = document.getElementById(`q${i}_optionA`);
+                const qBEl = document.getElementById(`q${i}_optionB`);
+                const qCEl = document.getElementById(`q${i}_optionC`);
+                const qDEl = document.getElementById(`q${i}_optionD`);
+                const qCorrectEl = document.getElementById(`q${i}_correct`);
+
+                const qText = qTextEl ? qTextEl.value.trim() : "";
+                const qA = qAEl ? qAEl.value.trim() : "";
+                const qB = qBEl ? qBEl.value.trim() : "";
+                const qC = qCEl ? qCEl.value.trim() : "";
+                const qD = qDEl ? qDEl.value.trim() : "";
+                const qCorrect = qCorrectEl ? qCorrectEl.value.trim() : "";
+
+                // Skip completely empty question blocks
+                if (!qText && !qA && !qB && !qC && !qD && !qCorrect) {
+                    continue;
+                }
+
+                questions.push({
+                    question_text: qText,
+                    option_a: qA,
+                    option_b: qB,
+                    option_c: qC,
+                    option_d: qD,
+                    correct_option: qCorrect
+                });
+            }
+
+            if (questions.length === 0) {
+                alert("Please add at least one complete question for a custom quiz.");
+                return;
+            }
+
+            fetch("saveCustomQuiz.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    material_id: parseInt(materialId),
+                    questions: questions
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    alert(data.message || "Failed to save custom quiz.");
+                    return;
+                }
+                alert("Custom quiz saved. Students will see your questions for this material.");
+                const modalEl = document.getElementById("quizEditorModal");
+                if (modalEl) {
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) modalInstance.hide();
+                }
+            })
+            .catch(error => {
+                console.error("Error saving custom quiz:", error);
+                alert("Error saving custom quiz.");
+            });
         }
 
         function viewQuizResults(materialId) {
@@ -366,6 +660,7 @@ $firstname = $_SESSION["firstname"];
                             <div class="material-item">
                                 <a href="${material.file_path}" target="_blank" title="${material.file_name}">${material.file_name}</a>
                                 <div>
+                                    <button class="btn btn-warning btn-sm me-2" onclick="openQuizEditor(${material.material_id})">Manage Quiz</button>
                                     <button class="btn btn-info btn-sm me-2" onclick="viewQuizResults(${material.material_id})">View Quiz Results</button>
                                     <button class="btn btn-danger btn-sm" onclick="deleteMaterial(${material.material_id})">Delete</button>
                                 </div>

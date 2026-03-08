@@ -26,6 +26,10 @@ $firstname = $_SESSION["firstname"];
     <script src="./js/index.js" defer></script> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.min.js" integrity="sha512-Z8CqofpIcnJN80feS2uccz+pXWgZzeKxDsDNMD/dJ6997/LSRY+W4NmEt9acwR+Gt9OHN0kkI1CTianCwoqcjQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js" integrity="sha512-lHibs5XrZL9hXP3Dhr/d2xJgPy91f2mhVAasrSbMkbmoTSm2Kz8DuSWszBLUg31v+BM6tSiHSqT72xwjaNvl0g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- Add Mammoth.js for Word documents -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- Add pptx2json for PowerPoint files -->
+    <script src="https://cdn.jsdelivr.net/npm/pptx2json@1.0.0/dist/pptx2json.min.js"></script>
     <style>
         .course-card {
             border-radius: 10px;
@@ -287,45 +291,66 @@ $firstname = $_SESSION["firstname"];
                 const quizModal = new bootstrap.Modal(document.getElementById('quizModal'));
                 quizModal.show();
 
-                // Fetch the material data
-                const response = await fetch(`fetchSingleMaterial.php?material_id=${materialId}`);
+                // Fetch quiz metadata + questions (if custom) for this material
+                const response = await fetch(`getMaterialQuiz.php?material_id=${materialId}`);
                 if (!response.ok) {
-                    throw new Error(`Failed to fetch material: ${response.status} ${response.statusText}`);
+                    throw new Error(`Failed to fetch material quiz: ${response.status} ${response.statusText}`);
                 }
                 
                 const material = await response.json();
+                if (material.error) {
+                    throw new Error(material.error);
+                }
+
+                const quizType = material.quiz_type || 'ai';
+                console.log("Quiz type for material", materialId, ":", quizType);
+
+                // If quiz type is custom, use lecturer-authored questions from DB
+                if (quizType === 'custom' && Array.isArray(material.questions) && material.questions.length > 0) {
+                    console.log("Using custom quiz questions from database");
+
+                    // Transform structured questions into the same line-based format
+                    // expected by displayQuiz() / submitQuiz()
+                    const questionLines = [];
+
+                    material.questions.forEach((q, index) => {
+                        const qNumber = index + 1;
+                        questionLines.push(`Q${qNumber}) ${q.question_text}`);
+                        questionLines.push(`A) ${q.option_a}`);
+                        questionLines.push(`B) ${q.option_b}`);
+                        questionLines.push(`C) ${q.option_c}`);
+                        questionLines.push(`D) ${q.option_d}`);
+                        questionLines.push(`Answer: ${q.correct_option}`);
+                    });
+
+                    displayQuiz(questionLines);
+                    return;
+                }
+
+                // Fallback / default: AI-generated quiz based on document content
                 const fileExtension = material.file_path.split('.').pop().toLowerCase();
+                let textContent = '';
 
                 if (fileExtension === 'pdf') {
-                    const pdfText = await extractTextFromPDF(material.file_path);
-                    if (!pdfText) {
-                        throw new Error('Failed to extract text from PDF');
-                    }
-                    const questions = await generateQuizQuestions(pdfText);
-                    if (!questions || questions.length === 0) {
-                        throw new Error('Failed to generate quiz questions');
-                    }
-                    displayQuiz(questions);
-                } else if (fileExtension.match(/doc(x)?/) || fileExtension.match(/ppt(x)?/)) {
-                    // For Office documents, use the document title and type
-                    const documentInfo = {
-                        title: material.file_name,
-                        type: fileExtension.match(/doc(x)?/) ? 'Word Document' : 'PowerPoint Presentation'
-                    };
-
-                    const questions = await generateQuizQuestions(
-                        `This is a ${documentInfo.type} titled "${documentInfo.title}". ` +
-                        `Please generate questions based on common concepts and topics that would be covered in this type of document.`
-                    );
-                    
-                    if (!questions || questions.length === 0) {
-                        throw new Error('Failed to generate quiz questions');
-                    }
-                    
-                    displayQuiz(questions);
+                    textContent = await extractTextFromPDF(material.file_path);
+                } else if (fileExtension.match(/docx?/)) {
+                    textContent = await extractTextFromWord(material.file_path);
+                } else if (fileExtension.match(/pptx?/)) {
+                    textContent = await extractTextFromPowerPoint(material.file_path);
                 } else {
-                    quizContent.innerHTML = "<p class='text-danger'>Quizzes can only be generated for PDF, DOC, and PowerPoint materials.</p>";
+                    throw new Error('Unsupported file type');
                 }
+
+                if (!textContent) {
+                    throw new Error('Failed to extract text from document');
+                }
+
+                const questions = await generateQuizQuestions(textContent);
+                if (!questions || questions.length === 0) {
+                    throw new Error('Failed to generate quiz questions');
+                }
+                
+                displayQuiz(questions);
             } catch (err) {
                 console.error("Error during quiz generation:", err);
                 const quizContent = document.getElementById("quizContent");
@@ -382,13 +407,75 @@ $firstname = $_SESSION["firstname"];
             }
         }
 
+        async function extractTextFromWord(docxUrl) {
+            try {
+                console.log(`Fetching Word document from URL: ${docxUrl}`);
+                
+                const response = await fetch(docxUrl);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch Word document. Status: ${response.status}`);
+                }
+
+                const docxData = await response.arrayBuffer();
+                console.log("Word document data fetched successfully.");
+
+                const result = await mammoth.extractRawText({ arrayBuffer: docxData });
+                console.log("Text extracted from Word document:", result.value);
+
+                return result.value;
+            } catch (error) {
+                console.error("Error extracting text from Word document:", error);
+                return '';
+            }
+        }
+
+        async function extractTextFromPowerPoint(pptxUrl) {
+            try {
+                console.log(`Fetching PowerPoint from URL: ${pptxUrl}`);
+                
+                // Create a FormData object to send the file
+                const formData = new FormData();
+                
+                // Fetch the file first
+                const response = await fetch(pptxUrl);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch PowerPoint. Status: ${response.status}`);
+                }
+                
+                const blob = await response.blob();
+                formData.append('pptx', blob);
+                
+                // Send to server for parsing
+                const parseResponse = await fetch('parsePowerPoint.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!parseResponse.ok) {
+                    throw new Error('Failed to parse PowerPoint file');
+                }
+                
+                const result = await parseResponse.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to parse PowerPoint file');
+                }
+                
+                console.log("PowerPoint parsed successfully.");
+                return result.text;
+            } catch (error) {
+                console.error("Error extracting text from PowerPoint:", error);
+                return '';
+            }
+        }
+
         async function generateQuizQuestions(textContent) {
             try {
                 console.log("Starting quiz generation with text content:", textContent.substring(0, 100) + "...");
 
                 // First, try to generate questions using the Gemini API
                 const response = await fetch(
-                    ``,
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyB8PsmmEPk0oUBn7Qnel7oQy8A8oZkytXU`,
                     {
                         method: 'POST',
                         headers: {
