@@ -473,46 +473,22 @@ $firstname = $_SESSION["firstname"];
             try {
                 console.log("Starting quiz generation with text content:", textContent.substring(0, 100) + "...");
 
-                // First, try to generate questions using the Gemini API
-                const response = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyB8PsmmEPk0oUBn7Qnel7oQy8A8oZkytXU`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            contents: [
-                                {
-                                    parts: [
-                                        {
-                                            text: `Generate 5 multiple-choice quiz questions based on the following text:\n${textContent}\nFormat: Q1) Question text? \nA) Option1 \nB) Option2 \nC) Option3 \nD) Option4 \nAnswer: A`,
-                                        },
-                                    ],
-                                },
-                            ],
-                        }),
-                    }
-                );
+                const response = await fetch('generateQuiz.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'textContent=' + encodeURIComponent(textContent)
+                });
 
                 if (!response.ok) {
                     throw new Error(`API Error: ${response.status} ${response.statusText}`);
                 }
 
-                const data = await response.json();
-                console.log("API response data:", data);
+                const questions = await response.json();
+                console.log("Generated Quiz Questions:", questions);
 
-                // Extract the generated text from the response
-                const generatedText = data.candidates[0].content.parts[0].text;
-                console.log("Generated Quiz Text:", generatedText);
-
-                // Split the response into individual questions
-                const questionsArray = generatedText.split("\n").filter((line) => line.trim() !== "");
-
-                // Remove bold formatting (**) from the questions
-                const cleanedQuestions = questionsArray.map(line => line.replace(/\*\*/g, ''));
-
-                return cleanedQuestions;
+                return questions;
             } catch (error) {
                 console.error("Error generating quiz questions:", error);
                 

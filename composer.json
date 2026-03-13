@@ -1,5 +1,6 @@
 {
     "require": {
-        "phpoffice/phppresentation": "^0.0.0"
+        "phpoffice/phppresentation": "^0.0.0",
+        "vlucas/phpdotenv": "^5.5"
     }
 } 
